@@ -35,7 +35,6 @@ def main():
             next = data['next']
             print 'next = ', next
 
-
             imgs = []
             results = data['results']
             #得到目标图片url
