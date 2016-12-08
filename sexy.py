@@ -8,13 +8,28 @@ import simplejson as json
 from time import sleep
 import grequests
 import gevent
-gevent.monkey.patch_all()
+
 from PIL import Image
 from multiprocessing import Pool
+
+import threading, Queue
+
+lock = threading.Lock()
+queue = Queue.Queue()  #构造一个不限制大小的的队列
+worker_num = 10  #设置线程的个数
 
 i=200
 img_num = 5612
 miss_num = 0
+
+class MyThread(threading.Thread) :
+
+    def __init__(self, func) :
+        super(MyThread, self).__init__()  #调用父类的构造函数
+        self.func = func  #传入线程函数逻辑
+
+    def run(self) :
+        self.func()
 
 def main():
 
@@ -22,7 +37,7 @@ def main():
     # next = '/channel/1015326/senses' 这是第一页
     next = '/channel/1015326/senses?offset=43882779' #这是第200页
     global i
-    while  i < 201:
+    while  i < 205:
         i+=1
         url = baseUrl + next
         content=requests.get(url, timeout=10)
@@ -43,12 +58,26 @@ def main():
                 # print 'sex = ' , sex
                 if sex != 1 :
                     img = r['photo']
-                    imgs.append(img)
+                    if img != '':
+                        imgs.append(img)
+
+            for index in xrange(len(imgs)) :
+                queue.put(imgs[index])
 
             threads = []
-            for index in xrange(len(imgs)):
-                threads.append(gevent.spawn(downloadImg, imgs[index]))
-            gevent.joinall(threads)
+            for i in xrange(worker_num) :
+                thread = MyThread(downloadImg)
+                thread.start()  #线程开始处理任务
+                print("第%s个线程开始工作") % i
+                threads.append(thread)
+            for thread in threads :
+                thread.join()
+            queue.join()
+
+            #
+            # for index in xrange(len(imgs)):
+            #     threads.append(gevent.spawn(downloadImg, imgs[index]))
+            # gevent.joinall(threads)
 
                 # try:
                 #     print "img = " + img
@@ -64,21 +93,25 @@ def main():
                 #     print '抓漏',miss_num,'张'
         sleep(random.uniform(0.1,0.5))
 
-def downloadImg(img) :
+def downloadImg() :
         try:
             global img_num
 
-            print "img = " + img
-            path='g:\\spider\\test\\'+str(img_num)+'.jpg'
-            #声明存储地址及图片名称
-            urllib.urlretrieve(img,path)
-            # image=urllib2.urlopen(img).read()
-            # file = open(path,'wb')
-            # file.write(image)
-            # file.close()
-            #下载图片
-            print '下载了第'+str(img_num)+'张图片'
-            img_num += 1
+            global queue
+            while not queue.empty():
+                img = queue.get()
+                print "img = " + img
+                path='g:\\spider\\test\\'+str(img_num)+'.jpg'
+                #声明存储地址及图片名称
+                urllib.urlretrieve(img,path)
+                # image=urllib2.urlopen(img).read()
+                # file = open(path,'wb')
+                # file.write(image)
+                # file.close()
+                #下载图片
+                print '下载了第'+str(img_num)+'张图片'
+                img_num += 1
+                queue.task_done()
             #睡眠函数用于防止爬取过快被封IP
         except Exception as e:
             print (e)
