@@ -45,7 +45,6 @@ def main():
                     img = r['photo']
                     imgs.append(img)
 
-
             threads = []
             for index in xrange(len(imgs)):
                 threads.append(gevent.spawn(downloadImg, imgs[index]))
