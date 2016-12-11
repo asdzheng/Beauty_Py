@@ -91,6 +91,7 @@ def downloadImg() :
             print '抓漏', miss_num,'张'
 
 
+
 if __name__ == '__main__':
     tasks = Queue()  #构造一个不限制大小的的队列
 
